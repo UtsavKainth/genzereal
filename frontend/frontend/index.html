@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0A0A0D" />
+    <title>GenZeReal</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+  .admin-field {
+    width: 100%;
+    background: #111116 !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 12px;
+    padding: 12px 14px;
+    outline: none;
+    transition: 0.2s;
+  }
+
+  .admin-field::placeholder {
+    color: #7d7d89 !important;
+  }
+
+  .admin-field:focus {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+  }
+
+  select.admin-field {
+    color-scheme: dark;
+  }
+
+  select.admin-field option {
+    background: #111116;
+    color: #ffffff;
+  }
+
+  input[type="number"].admin-field {
+    color: #ffffff;
+  }
+</style>
+  </head>
+
+  <body style="margin: 0; background: #0A0A0D;">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
