@@ -659,7 +659,17 @@ const Navbar = ({ onCart, onWishlist, onOrders, onLogin, cartCount, wishCount, i
   </header>
 );
 
-const MobileMenu = ({ open, onClose, isLoggedIn, onLogin, onLogout, user }) => (
+const MobileMenu = ({
+  open,
+  onClose,
+  isLoggedIn,
+  onLogin,
+  onLogout,
+  user,
+  isAdmin,
+  onAdmin,
+  onOrders,
+}) => (
   <div
     className={`fixed inset-0 z-50 md:hidden drawer-backdrop ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
     style={{ background: "rgba(0,0,0,0.6)" }}
@@ -679,6 +689,31 @@ const MobileMenu = ({ open, onClose, isLoggedIn, onLogin, onLogout, user }) => (
         <a href="#drops" onClick={onClose}>New Drops</a>
         <a href="#community" onClick={onClose}>Community</a>
         <a href="#footer" onClick={onClose}>About</a>
+        {isLoggedIn && (
+  <>
+    <button
+      onClick={() => {
+        onClose();
+        onOrders();
+      }}
+      className="text-left"
+    >
+      My Orders
+    </button>
+
+    {isAdmin && (
+      <button
+        onClick={() => {
+          onClose();
+          onAdmin();
+        }}
+        className="text-left"
+      >
+        Admin Dashboard
+      </button>
+    )}
+  </>
+)}
       </nav>
       <div className="mt-auto pt-6 border-t border-line">
         {isLoggedIn ? (
@@ -2976,13 +3011,35 @@ export default function App() {
         }}
       />
       <MobileMenu
-        open={showMobileMenu}
-        onClose={() => setShowMobileMenu(false)}
-        isLoggedIn={isLoggedIn}
-        user={user || { name: "" }}
-        onLogin={() => { setShowMobileMenu(false); setShowLogin(true); }}
-        onLogout={async () => { try { await authApi.logout(); } catch {} clearSession(); setIsLoggedIn(false); setUser(null); setWishlist([]); setShowMobileMenu(false); notify("Logged out"); }}
-      />
+  open={showMobileMenu}
+  onClose={() => setShowMobileMenu(false)}
+  isLoggedIn={isLoggedIn}
+  user={user || { name: "" }}
+  isAdmin={isAdmin}
+  onAdmin={() => {
+    setShowMobileMenu(false);
+    setShowAdmin(true);
+  }}
+  onOrders={() => {
+    setShowMobileMenu(false);
+    setShowOrders(true);
+  }}
+  onLogin={() => {
+    setShowMobileMenu(false);
+    setShowLogin(true);
+  }}
+  onLogout={async () => {
+    try {
+      await authApi.logout();
+    } catch {}
+    clearSession();
+    setIsLoggedIn(false);
+    setUser(null);
+    setWishlist([]);
+    setShowMobileMenu(false);
+    notify("Logged out");
+  }}
+/>
 
       <CategoryModal
         open={Boolean(activeCategory)}
