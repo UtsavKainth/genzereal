@@ -608,11 +608,19 @@ const Navbar = ({ onCart, onWishlist, onOrders, onLogin, cartCount, wishCount, i
       </nav>
 
       <div className="flex items-center gap-4 md:gap-5">
-        {isAdmin && (
-          <button onClick={onAdmin} className="hidden sm:flex items-center gap-1.5 f-mono text-xs font-semibold px-3.5 py-2 rounded-full" style={{ background: "linear-gradient(90deg,var(--gold),var(--pink))", color: "#0A0A0D" }}>
-            <Sparkles size={13} /> Admin
-          </button>
-        )}
+       {isAdmin && (
+  <button
+    onClick={onAdmin}
+    className="flex items-center gap-1.5 f-mono text-[10px] sm:text-xs font-semibold px-2.5 sm:px-3.5 py-2 rounded-full"
+    style={{
+      background: "linear-gradient(90deg,var(--gold),var(--pink))",
+      color: "#0A0A0D",
+    }}
+  >
+    <Sparkles size={13} />
+    <span className="hidden sm:inline">Admin</span>
+  </button>
+)}
         <button className="icon-btn hidden sm:block" aria-label="Search">
           <Search size={20} />
         </button>
