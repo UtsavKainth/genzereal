@@ -1949,7 +1949,15 @@ const Footer = () => (
 
 /* --------------------------------- CART DRAWER --------------------------------- */
 
-const CartDrawer = ({ open, onClose, items, onUpdateQty, onRemove, onCheckout }) => {
+const CartDrawer = ({
+  open,
+  onClose,
+  items,
+  onUpdateQty,
+  onRemove,
+  onCheckout,
+  onOpenProduct,
+}) => {
   const total = items.reduce((s, i) => s + i.price * i.qty, 0);
   return (
     <div className={`fixed inset-0 z-50 drawer-backdrop ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`} style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
@@ -1971,10 +1979,34 @@ const CartDrawer = ({ open, onClose, items, onUpdateQty, onRemove, onCheckout })
             </div>
           )}
           {items.map((i) => (
-            <div key={i.id} className="flex gap-3">
-              <ProductSwatch g={i.g} mark={i.mark} img={i.img} alt={i.name} className="w-20 h-24 rounded-lg shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="f-head text-sm font-semibold truncate">{i.name}</p>
+            <div key={`${i.id}-${i.size || "default"}`} className="flex gap-3">
+  <button
+    type="button"
+    onClick={() => onOpenProduct(i)}
+    className="shrink-0 text-left"
+    aria-label={`Open ${i.name}`}
+  >
+    <ProductSwatch
+      g={i.g}
+      mark={i.mark}
+      img={i.img}
+      alt={i.name}
+      className="w-20 h-24 rounded-lg"
+    />
+  </button>
+
+  <div className="flex-1 min-w-0">
+    <button
+      type="button"
+      onClick={() => onOpenProduct(i)}
+      className="f-head text-sm font-semibold truncate block text-left w-full hover:text-violet transition-colors"
+    >
+      {i.name}
+    </button>
+
+    <p className="text-xs text-muted mt-1">
+      Size: {i.size || "Not selected"}
+    </p>
                 <p className="f-mono text-xs text-gold mt-1">{inr(i.price)}</p>
                 <div className="flex items-center gap-3 mt-2">
                   <div className="flex items-center border border-line rounded-full">
@@ -2966,13 +2998,26 @@ export default function App() {
       <Footer />
 
       <CartDrawer
-        open={showCart}
-        onClose={() => setShowCart(false)}
-        items={cart}
-        onUpdateQty={updateQty}
-        onRemove={removeFromCart}
-        onCheckout={checkout}
-      />
+  open={showCart}
+  onClose={() => setShowCart(false)}
+  items={cart}
+  onUpdateQty={updateQty}
+  onRemove={removeFromCart}
+  onCheckout={checkout}
+  onOpenProduct={(item) => {
+    const product =
+      products.find((productItem) => productItem.id === item.id) || item;
+
+    setShowCart(false);
+
+    openFullPageProduct(
+      product,
+      products.filter(
+        (productItem) => productItem.cat === product.cat
+      )
+    );
+  }}
+/>
       <CheckoutModal
         open={showCheckout}
         onClose={() => setShowCheckout(false)}
