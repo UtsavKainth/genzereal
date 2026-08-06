@@ -341,28 +341,47 @@ const initialHistory = (status) => [
 
 /* -------------------------- EMAIL HANDLER ------------------------- */
 
-async function sendConfirmationSafely(
-  order
-) {
+async function sendConfirmationSafely(order) {
   try {
     await sendOrderConfirmation(order);
 
-    order.emailSent = true;
-    order.emailError = undefined;
+    await Order.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          emailSent: true,
+        },
+        $unset: {
+          emailError: "",
+        },
+      }
+    );
+
+    console.log(
+      `Confirmation email completed for ${order.orderNumber}`
+    );
   } catch (emailError) {
     console.error(
       "Order confirmation email failed:",
       emailError.message
     );
 
-    order.emailSent = false;
-    order.emailError =
-      emailError.message;
+    await Order.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          emailSent: false,
+          emailError: emailError.message,
+        },
+      }
+    ).catch((databaseError) => {
+      console.error(
+        "Unable to save email error:",
+        databaseError.message
+      );
+    });
   }
-
-  await order.save();
 }
-
 /* ---------------------- CREATE RAZORPAY ORDER --------------------- */
 
 export async function createPaymentOrder(
@@ -634,18 +653,17 @@ export async function verifyPayment(
       }
     );
 
-    await sendConfirmationSafely(
+    void sendConfirmationSafely(
       createdOrder
     );
 
-    return res.status(201).json({
-      message:
-        createdOrder.emailSent
-          ? "Payment successful and confirmation email has been sent"
-          : "Payment successful, but confirmation email could not be sent",
+   return res.status(201).json({
+  message: `Order placed successfully. Confirmation email is being sent to ${createdOrder.customerEmail}`,
 
-      order: createdOrder,
-    });
+  emailStatus: "sending",
+
+  order: createdOrder,
+});
   } catch (error) {
     console.error(
       "Verify Razorpay payment failed:",
@@ -778,7 +796,7 @@ export async function createOrder(
       }
     );
 
-    await sendConfirmationSafely(
+    void sendConfirmationSafely(
       createdOrder
     );
 
