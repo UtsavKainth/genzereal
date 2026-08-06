@@ -640,20 +640,32 @@ const Navbar = ({ onCart, onWishlist, onOrders, onLogin, cartCount, wishCount, i
         )}
 
         {isLoggedIn ? (
-          <div className="hidden sm:flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center f-mono text-xs font-semibold"
-              style={{ background: "linear-gradient(135deg,var(--pink),var(--violet))" }}>
-              {user.name.charAt(0).toUpperCase()}
-            </div>
-            <button onClick={onLogout} className="icon-btn" aria-label="Log out" title="Log out">
-              <LogOut size={18} />
-            </button>
-          </div>
-        ) : (
-          <button onClick={onLogin} className="hidden sm:flex items-center gap-1.5 btn-ghost px-4 py-2 rounded-full text-sm">
-            <User size={16} /> Log In
-          </button>
-        )}
+  <button
+    type="button"
+    onClick={onMenu}
+    className="flex items-center justify-center w-9 h-9 rounded-full shrink-0"
+    style={{
+      background:
+        "linear-gradient(135deg,var(--pink),var(--violet))",
+    }}
+    aria-label="Open account menu"
+    title={user?.name || "Account"}
+  >
+    <span className="f-mono text-xs font-semibold">
+      {user?.name?.charAt(0)?.toUpperCase() || "U"}
+    </span>
+  </button>
+) : (
+  <button
+    type="button"
+    onClick={onLogin}
+    className="icon-btn flex items-center"
+    aria-label="Log in"
+    title="Log in"
+  >
+    <User size={20} />
+  </button>
+)}
       </div>
     </div>
   </header>
