@@ -588,7 +588,7 @@ const Stars = ({ rating }) => (
 
 /* --------------------------------- NAVBAR --------------------------------- */
 
-const Navbar = ({ onCart, onWishlist, onOrders, onLogin, cartCount, wishCount, isLoggedIn, user, onLogout, onMenu, isAdmin, onAdmin }) => (
+const Navbar = ({ onCart, onWishlist, onOrders, onLogin, onSearch, cartCount, wishCount, isLoggedIn, user, onLogout, onMenu, isAdmin, onAdmin }) => (
   <header className="sticky top-0 z-40 border-b border-line" style={{ background: "rgba(10,10,13,0.85)", backdropFilter: "blur(12px)" }}>
     <div className="max-w-7xl mx-auto px-5 md:px-8 h-16 flex items-center justify-between">
       <div className="flex items-center gap-6">
@@ -621,7 +621,7 @@ const Navbar = ({ onCart, onWishlist, onOrders, onLogin, cartCount, wishCount, i
     <span className="hidden sm:inline">Admin</span>
   </button>
 )}
-        <button className="icon-btn hidden sm:block" aria-label="Search">
+        <button className="icon-btn hidden sm:block" onClick={onSearch} aria-label="Search">
           <Search size={20} />
         </button>
         <button className="icon-btn" onClick={onWishlist} aria-label="Wishlist">
@@ -640,21 +640,34 @@ const Navbar = ({ onCart, onWishlist, onOrders, onLogin, cartCount, wishCount, i
         )}
 
         {isLoggedIn ? (
-  <button
-    type="button"
-    onClick={onMenu}
-    className="flex items-center justify-center w-9 h-9 rounded-full shrink-0"
-    style={{
-      background:
-        "linear-gradient(135deg,var(--pink),var(--violet))",
-    }}
-    aria-label="Open account menu"
-    title={user?.name || "Account"}
-  >
-    <span className="f-mono text-xs font-semibold">
-      {user?.name?.charAt(0)?.toUpperCase() || "U"}
-    </span>
-  </button>
+  <div className="flex items-center gap-2">
+    <button
+      type="button"
+      onClick={onMenu}
+      className="flex items-center justify-center w-9 h-9 rounded-full shrink-0"
+      style={{
+        background:
+          "linear-gradient(135deg,var(--pink),var(--violet))",
+      }}
+      aria-label="Open account menu"
+      title={user?.name || "Account"}
+    >
+      <span className="f-mono text-xs font-semibold">
+        {user?.name?.charAt(0)?.toUpperCase() || "U"}
+      </span>
+    </button>
+
+    <button
+      type="button"
+      onClick={onLogout}
+      className="hidden md:flex items-center gap-1.5 btn-ghost px-3 py-2 rounded-full text-xs"
+      aria-label="Log out"
+      title="Log out"
+    >
+      <LogOut size={15} />
+      Logout
+    </button>
+  </div>
 ) : (
   <button
     type="button"
@@ -670,6 +683,122 @@ const Navbar = ({ onCart, onWishlist, onOrders, onLogin, cartCount, wishCount, i
     </div>
   </header>
 );
+
+
+const SearchModal = ({ open, onClose, products, onOpenProduct }) => {
+  const [query, setQuery] = useState("");
+
+  if (!open) return null;
+
+  const q = query.trim().toLowerCase();
+
+  const results = q
+    ? products
+        .filter((product) =>
+          [product.name, product.cat, product.tag, product.desc]
+            .filter(Boolean)
+            .some((value) =>
+              String(value).toLowerCase().includes(q)
+            )
+        )
+        .slice(0, 12)
+    : [];
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-20 sm:pt-24"
+      style={{ background: "rgba(0,0,0,0.78)", backdropFilter: "blur(8px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl rounded-2xl border border-line bg-surface overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 p-4 border-b border-line">
+          <Search size={20} className="text-muted shrink-0" />
+
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search products..."
+            className="flex-1 bg-transparent outline-none text-white f-head text-sm sm:text-base"
+          />
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="icon-btn"
+            aria-label="Close search"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="max-h-[65vh] overflow-y-auto">
+          {!q ? (
+            <div className="p-8 text-center text-muted text-sm">
+              Search by product name or category
+            </div>
+          ) : results.length === 0 ? (
+            <div className="p-8 text-center text-muted text-sm">
+              No products found for "{query}"
+            </div>
+          ) : (
+            <div className="p-2">
+              {results.map((product) => {
+                const image =
+                  product.images?.[0] ||
+                  product.img ||
+                  "";
+
+                return (
+                  <button
+                    key={product.id}
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenProduct(product);
+                    }}
+                    className="w-full flex items-center gap-4 p-3 rounded-xl text-left hover:bg-white/5 transition-colors"
+                  >
+                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-white/5 shrink-0">
+                      {image ? (
+                        <img
+                          src={image}
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted">
+                          <ShoppingBag size={20} />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="f-head text-sm font-semibold truncate">
+                        {product.name}
+                      </div>
+
+                      <div className="f-mono text-xs text-muted mt-1">
+                        {product.cat}
+                      </div>
+
+                      <div className="f-mono text-sm mt-1">
+                        ₹{Number(product.price || 0).toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const MobileMenu = ({
   open,
@@ -2687,6 +2816,7 @@ const FEATURED_PRODUCT_ID = 3; // Glitch Pullover Hoodie
 
 export default function App() {
   const [products, setProducts] = useState(PRODUCTS);
+  const [showSearch, setShowSearch] = useState(false);
   const [collections, setCollections] = useState(COLLECTIONS);
 
   useEffect(() => {
@@ -2974,6 +3104,7 @@ export default function App() {
       <div className="grain" />
 
       <Navbar
+        onSearch={() => setShowSearch(true)}
         onCart={() => setShowCart(true)}
         onWishlist={() => setShowWishlist(true)}
         onOrders={() => setShowOrders(true)}
@@ -3067,6 +3198,18 @@ export default function App() {
           notify(admin ? "Welcome back, admin" : `Welcome, ${data.user.name}`);
         }}
       />
+      <SearchModal
+        open={showSearch}
+        onClose={() => setShowSearch(false)}
+        products={products}
+        onOpenProduct={(product) =>
+          openFullPageProduct(
+            product,
+            products.filter((item) => item.cat === product.cat)
+          )
+        }
+      />
+
       <MobileMenu
   open={showMobileMenu}
   onClose={() => setShowMobileMenu(false)}

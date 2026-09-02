@@ -1,21 +1,12 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 
-function createTransporter() {
-  return nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false,
-    requireTLS: true,
-    auth: {
-      user: process.env.MAIL_USER,
-      pass: process.env.MAIL_PASS,
-    },
-    tls: {
-      rejectUnauthorized: false,
-      minVersion: "TLSv1.2",
-    },
-  });
+function getResend() {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY is not configured");
+  }
+
+  return new Resend(process.env.RESEND_API_KEY);
 }
 
 function escapeHtml(value = "") {
@@ -57,8 +48,8 @@ function buildAddress(address = {}) {
 }
 
 export async function sendOrderConfirmation(order) {
-  if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
-    throw new Error("Email credentials are not configured");
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY is not configured");
   }
 
   if (!order.customerEmail) {
@@ -463,18 +454,26 @@ Thank you for shopping with GenZeReal.
     mailOptions.bcc = process.env.ADMIN_EMAIL;
   }
 
-  const info = await createTransporter().sendMail(mailOptions);
+  const resend = getResend();
+
+  const { data, error } = await resend.emails.send(mailOptions);
+
+  if (error) {
+    throw new Error(
+      error.message || "Resend failed to send confirmation email"
+    );
+  }
 
   console.log(
-    `Confirmation email sent to ${order.customerEmail}: ${info.messageId}`
+    `Confirmation email sent to ${order.customerEmail}: ${data?.id || "sent"}`
   );
 
-  return info;
+  return data;
 }
 
 export async function sendOrderStatusUpdate(order) {
-  if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
-    throw new Error("Email credentials are not configured");
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY is not configured");
   }
 
   if (!order.customerEmail) {
@@ -534,7 +533,7 @@ export async function sendOrderStatusUpdate(order) {
   `;
 
   const mailOptions = {
-    from: process.env.MAIL_FROM || `"GenZeReal" <${process.env.MAIL_USER}>`,
+    from: process.env.MAIL_FROM || "GenZeReal <orders@genzereal.com>",
     to: order.customerEmail,
     subject: `${statusLabel} — ${order.orderNumber}`,
     html,
@@ -558,7 +557,17 @@ Thank you for shopping with GenZeReal.
     mailOptions.bcc = process.env.ADMIN_EMAIL;
   }
 
-  const info = await createTransporter().sendMail(mailOptions);
-  console.log(`Order status email sent to ${order.customerEmail}: ${info.messageId}`);
-  return info;
+  const resend = getResend();
+
+  const { data, error } = await resend.emails.send(mailOptions);
+
+  if (error) {
+    throw new Error(error.message || "Resend failed to send status email");
+  }
+
+  console.log(
+    `Order status email sent to ${order.customerEmail}: ${data?.id || "sent"}`
+  );
+
+  return data;
 }
