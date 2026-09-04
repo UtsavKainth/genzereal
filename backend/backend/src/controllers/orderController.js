@@ -978,3 +978,172 @@ export async function cancelMyOrder(
     await session.endSession();
   }
 }
+
+/* --------------------- RETURN / EXCHANGE REQUEST --------------------- */
+
+export async function requestReturnExchange(req, res) {
+  try {
+    const order = await Order.findOne({
+      _id: req.params.orderId,
+      user: req.user._id,
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        message: "Order not found",
+      });
+    }
+
+    if (order.status !== "delivered") {
+      return res.status(400).json({
+        message: "Return or exchange can be requested only after delivery",
+      });
+    }
+
+    const deliveredHistory = Array.isArray(order.statusHistory)
+      ? [...order.statusHistory]
+          .reverse()
+          .find((entry) => entry.status === "delivered")
+      : null;
+
+    const deliveredAt = deliveredHistory?.changedAt;
+
+    if (!deliveredAt) {
+      return res.status(400).json({
+        message: "Delivery date could not be verified",
+      });
+    }
+
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+    if (Date.now() - new Date(deliveredAt).getTime() > sevenDaysMs) {
+      return res.status(400).json({
+        message: "The 7-day return/exchange request period has expired",
+      });
+    }
+
+    const existingStatus = order.returnRequest?.status || "none";
+
+    if (
+      existingStatus !== "none" &&
+      existingStatus !== "rejected"
+    ) {
+      return res.status(400).json({
+        message: "A return or exchange request already exists for this order",
+      });
+    }
+
+    const type = String(req.body?.type || "").trim().toLowerCase();
+    const reason = String(req.body?.reason || "").trim().toLowerCase();
+    const details = String(req.body?.details || "").trim();
+    const requestedSize = String(req.body?.requestedSize || "").trim().toUpperCase();
+    const productId = Number(req.body?.productId);
+
+    if (!["exchange", "return"].includes(type)) {
+      return res.status(400).json({
+        message: "Please select return or exchange",
+      });
+    }
+
+    if (!["size_issue", "damaged", "wrong_item"].includes(reason)) {
+      return res.status(400).json({
+        message: "Please select a valid reason",
+      });
+    }
+
+    if (reason === "size_issue" && type !== "exchange") {
+      return res.status(400).json({
+        message: "Size issues are eligible for exchange only",
+      });
+    }
+
+    const item = order.items.find(
+      (orderItem) => Number(orderItem.productId) === productId
+    );
+
+    if (!item) {
+      return res.status(400).json({
+        message: "Selected product was not found in this order",
+      });
+    }
+
+    if (reason === "size_issue") {
+      if (!requestedSize) {
+        return res.status(400).json({
+          message: "Please select the required replacement size",
+        });
+      }
+
+      if (
+        String(item.size || "").trim().toUpperCase() === requestedSize
+      ) {
+        return res.status(400).json({
+          message: "Please select a different size for exchange",
+        });
+      }
+
+      const product = await Product.findOne({
+        id: item.productId,
+        active: true,
+      });
+
+      if (!product) {
+        return res.status(400).json({
+          message: "This product is currently unavailable for size exchange",
+        });
+      }
+
+      const replacementSize = product.sizes.find(
+        (sizeItem) =>
+          String(sizeItem.size || "").trim().toUpperCase() === requestedSize
+      );
+
+      if (!replacementSize) {
+        return res.status(400).json({
+          message: "The requested replacement size is not available for this product",
+        });
+      }
+
+      if (Number(replacementSize.stock || 0) <= 0) {
+        return res.status(400).json({
+          message: "Requested replacement size is currently out of stock",
+        });
+      }
+    }
+
+    order.returnRequest = {
+      type,
+      reason,
+      itemProductId: item.productId,
+      itemName: item.name,
+      originalSize: item.size || "",
+      requestedSize: reason === "size_issue" ? requestedSize : "",
+      details,
+      status: "requested",
+      requestedAt: new Date(),
+      reviewedAt: null,
+      adminNote: "",
+      reverseCourier: {
+        name: "",
+        awbNumber: "",
+        trackingUrl: "",
+      },
+    };
+
+    await order.save();
+
+    return res.status(201).json({
+      message:
+        type === "exchange"
+          ? "Exchange request submitted successfully"
+          : "Return request submitted successfully",
+      order,
+    });
+  } catch (error) {
+    console.error("Return/exchange request failed:", error);
+
+    return res.status(500).json({
+      message: error.message || "Unable to submit return or exchange request",
+    });
+  }
+}

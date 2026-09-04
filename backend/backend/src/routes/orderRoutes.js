@@ -6,6 +6,7 @@ import {
   verifyPayment,
   myOrders,
   cancelMyOrder,
+  requestReturnExchange,
 } from "../controllers/orderController.js";
 
 const router = Router();
@@ -15,4 +16,5 @@ router.post("/payment/verify", verifyPayment);
 router.post("/", createOrder);
 router.get("/mine", myOrders);
 router.patch("/:orderId/cancel", cancelMyOrder);
+router.patch("/:orderId/return-request", requestReturnExchange);
 export default router;

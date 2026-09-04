@@ -67,6 +67,18 @@ export default function AdminDashboard({ open, onClose }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
+  const [returnSaving, setReturnSaving] = useState(false);
+  const [returnForm, setReturnForm] = useState({
+    status: "",
+    adminNote: "",
+    courierName: "",
+    trackingNumber: "",
+    trackingUrl: "",
+    replacementCourierName: "",
+    replacementAwbNumber: "",
+    replacementTrackingUrl: "",
+  });
+
   const [editForm, setEditForm] = useState({
     status: "booked",
     courierName: "",
@@ -110,6 +122,26 @@ export default function AdminDashboard({ open, onClose }) {
         selectedOrder.awbNumber ||
         "",
       trackingUrl: selectedOrder.trackingUrl || "",
+    });
+  }, [selectedOrder]);
+
+  useEffect(() => {
+    if (!selectedOrder) return;
+
+    const request = selectedOrder.returnRequest;
+
+    setReturnForm({
+      status: request?.status || "",
+      adminNote: request?.adminNote || "",
+      courierName: request?.reverseCourier?.name || "",
+      trackingNumber: request?.reverseCourier?.awbNumber || "",
+      trackingUrl: request?.reverseCourier?.trackingUrl || "",
+      replacementCourierName:
+        request?.replacementCourier?.name || "",
+      replacementAwbNumber:
+        request?.replacementCourier?.awbNumber || "",
+      replacementTrackingUrl:
+        request?.replacementCourier?.trackingUrl || "",
     });
   }, [selectedOrder]);
 
@@ -167,6 +199,51 @@ export default function AdminDashboard({ open, onClose }) {
       setError(requestError.message || "Unable to update order.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const updateReturnRequest = async (statusOverride) => {
+    if (!selectedOrder?._id) return;
+
+    const status = statusOverride || returnForm.status;
+
+    if (!status) {
+      setError("Please select a return/exchange status.");
+      return;
+    }
+
+    setReturnSaving(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const data = await adminApi.updateReturnRequest(
+        selectedOrder._id,
+        {
+          ...returnForm,
+          status,
+        }
+      );
+
+      setMessage(
+        data.message ||
+          "Return/exchange request updated successfully."
+      );
+
+      setSelectedOrder(data.order);
+
+      setOrders((previous) =>
+        previous.map((order) =>
+          order._id === data.order._id ? data.order : order
+        )
+      );
+    } catch (requestError) {
+      setError(
+        requestError.message ||
+          "Unable to update return/exchange request."
+      );
+    } finally {
+      setReturnSaving(false);
     }
   };
 
@@ -382,6 +459,10 @@ export default function AdminDashboard({ open, onClose }) {
           message={message}
           error={error}
           onSave={updateOrder}
+          returnForm={returnForm}
+          setReturnForm={setReturnForm}
+          returnSaving={returnSaving}
+          onReturnUpdate={updateReturnRequest}
           onClose={() => {
             setSelectedOrder(null);
             setMessage("");
@@ -417,6 +498,10 @@ function OrderDetails({
   message,
   error,
   onSave,
+  returnForm,
+  setReturnForm,
+  returnSaving,
+  onReturnUpdate,
   onClose,
 }) {
   return (
@@ -514,6 +599,292 @@ function OrderDetails({
               value={formatMoney(getOrderTotal(order))}
             />
           </InfoSection>
+
+
+          {order.returnRequest &&
+            order.returnRequest.status &&
+            order.returnRequest.status !== "none" && (
+              <InfoSection title="Return / Exchange Request">
+                <div className="space-y-5">
+
+                  <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4 space-y-3">
+                    <InfoRow
+                      label="Request Type"
+                      value={
+                        order.returnRequest.type === "exchange"
+                          ? "Exchange"
+                          : "Return / Refund"
+                      }
+                    />
+
+                    <InfoRow
+                      label="Reason"
+                      value={
+                        order.returnRequest.reason === "size_issue"
+                          ? "Size Issue"
+                          : order.returnRequest.reason === "damaged"
+                          ? "Damaged / Defective"
+                          : order.returnRequest.reason === "wrong_item"
+                          ? "Wrong Item"
+                          : order.returnRequest.reason || "Not provided"
+                      }
+                    />
+
+                    <InfoRow
+                      label="Product"
+                      value={order.returnRequest.itemName || "Not available"}
+                    />
+
+                    <InfoRow
+                      label="Original Size"
+                      value={order.returnRequest.originalSize || "Not applicable"}
+                    />
+
+                    {order.returnRequest.requestedSize && (
+                      <InfoRow
+                        label="Requested Size"
+                        value={order.returnRequest.requestedSize}
+                      />
+                    )}
+
+                    <InfoRow
+                      label="Requested On"
+                      value={formatDate(order.returnRequest.requestedAt)}
+                    />
+
+                    <InfoRow
+                      label="Current Status"
+                      value={
+                        String(order.returnRequest.status || "")
+                          .replaceAll("_", " ")
+                          .replace(/w/g, (letter) =>
+                            letter.toUpperCase()
+                          )
+                      }
+                    />
+
+                    {order.returnRequest.details && (
+                      <div>
+                        <p className="text-xs text-muted mb-1">
+                          Customer Details
+                        </p>
+                        <p className="text-sm text-white/80 leading-relaxed">
+                          {order.returnRequest.details}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <label className="block">
+                    <span className="block text-xs text-muted mb-2">
+                      Admin Note
+                    </span>
+
+                    <textarea
+                      rows={3}
+                      value={returnForm.adminNote}
+                      onChange={(event) =>
+                        setReturnForm((previous) => ({
+                          ...previous,
+                          adminNote: event.target.value,
+                        }))
+                      }
+                      placeholder="Add note for this return/exchange request..."
+                      className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm outline-none resize-none"
+                    />
+                  </label>
+
+                  {order.returnRequest.status === "requested" && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        disabled={returnSaving}
+                        onClick={() => onReturnUpdate("approved")}
+                        className="rounded-full bg-green-500/15 border border-green-500/30 text-green-300 py-3 text-sm font-medium disabled:opacity-50"
+                      >
+                        {returnSaving ? "Saving..." : "Approve Request"}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={returnSaving}
+                        onClick={() => onReturnUpdate("rejected")}
+                        className="rounded-full bg-red-500/15 border border-red-500/30 text-red-300 py-3 text-sm font-medium disabled:opacity-50"
+                      >
+                        Reject Request
+                      </button>
+                    </div>
+                  )}
+
+                  {order.returnRequest.status !== "requested" &&
+                    order.returnRequest.status !== "rejected" &&
+                    order.returnRequest.status !== "completed" && (
+                      <>
+                        <label className="block">
+                          <span className="block text-xs text-muted mb-2">
+                            Return / Exchange Progress
+                          </span>
+
+                          <select
+                            value={returnForm.status}
+                            onChange={(event) =>
+                              setReturnForm((previous) => ({
+                                ...previous,
+                                status: event.target.value,
+                              }))
+                            }
+                            className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm outline-none"
+                          >
+                            <option value="approved">Approved</option>
+                            <option value="pickup_scheduled">
+                              Pickup Scheduled
+                            </option>
+                            <option value="picked_up">Picked Up</option>
+                            <option value="received">
+                              Received / Inspection
+                            </option>
+
+                            {order.returnRequest.type === "exchange" ? (
+                              <option value="exchange_dispatched">
+                                Exchange Dispatched
+                              </option>
+                            ) : (
+                              <option value="refund_processed">
+                                Refund Processed
+                              </option>
+                            )}
+
+                            <option value="completed">Completed</option>
+                          </select>
+                        </label>
+
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          <AdminInput
+                            label="Reverse Courier"
+                            value={returnForm.courierName}
+                            placeholder="Example: Delhivery"
+                            onChange={(value) =>
+                              setReturnForm((previous) => ({
+                                ...previous,
+                                courierName: value,
+                              }))
+                            }
+                          />
+
+                          <AdminInput
+                            label="Reverse AWB / Tracking Number"
+                            value={returnForm.trackingNumber}
+                            placeholder="Reverse pickup AWB"
+                            onChange={(value) =>
+                              setReturnForm((previous) => ({
+                                ...previous,
+                                trackingNumber: value,
+                              }))
+                            }
+                          />
+
+                          <div className="sm:col-span-2">
+                            <AdminInput
+                              label="Reverse Tracking URL"
+                              value={returnForm.trackingUrl}
+                              placeholder="https://courier-site.com/track/..."
+                              onChange={(value) =>
+                                setReturnForm((previous) => ({
+                                  ...previous,
+                                  trackingUrl: value,
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+
+
+                        {order.returnRequest.type === "exchange" &&
+                          returnForm.status === "exchange_dispatched" && (
+                            <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4">
+                              <p className="text-sm font-medium text-green-300 mb-4">
+                                Replacement Shipment
+                              </p>
+
+                              <div className="grid sm:grid-cols-2 gap-4">
+                                <AdminInput
+                                  label="Replacement Courier"
+                                  value={returnForm.replacementCourierName}
+                                  placeholder="Example: Delhivery"
+                                  onChange={(value) =>
+                                    setReturnForm((previous) => ({
+                                      ...previous,
+                                      replacementCourierName: value,
+                                    }))
+                                  }
+                                />
+
+                                <AdminInput
+                                  label="Replacement AWB / Tracking Number"
+                                  value={returnForm.replacementAwbNumber}
+                                  placeholder="Replacement shipment AWB"
+                                  onChange={(value) =>
+                                    setReturnForm((previous) => ({
+                                      ...previous,
+                                      replacementAwbNumber: value,
+                                    }))
+                                  }
+                                />
+
+                                <div className="sm:col-span-2">
+                                  <AdminInput
+                                    label="Replacement Tracking URL"
+                                    value={returnForm.replacementTrackingUrl}
+                                    placeholder="https://courier-site.com/track/..."
+                                    onChange={(value) =>
+                                      setReturnForm((previous) => ({
+                                        ...previous,
+                                        replacementTrackingUrl: value,
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                        <button
+                          type="button"
+                          onClick={() => onReturnUpdate()}
+                          disabled={returnSaving}
+                          className="btn-primary w-full rounded-full py-3 disabled:opacity-50"
+                        >
+                          {returnSaving
+                            ? "Saving..."
+                            : "Save Return / Exchange Update"}
+                        </button>
+                      </>
+                    )}
+
+                  {order.returnRequest.status === "rejected" && (
+                    <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+                      <p className="text-sm text-red-300 font-medium">
+                        Request Rejected
+                      </p>
+
+                      {order.returnRequest.adminNote && (
+                        <p className="text-xs text-white/60 mt-2">
+                          {order.returnRequest.adminNote}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {order.returnRequest.status === "completed" && (
+                    <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4">
+                      <p className="text-sm text-green-300 font-medium">
+                        Return / Exchange Completed
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </InfoSection>
+            )}
 
           <InfoSection title="Update Shipment">
             <div className="grid sm:grid-cols-2 gap-4">

@@ -7,6 +7,7 @@ import {
   getAdminDashboard,
   getAllOrders,
   updateOrderStatus,
+  updateReturnRequest,
 } from "../controllers/adminController.js";
 
 const router = Router();
@@ -18,6 +19,11 @@ router.get("/orders", getAllOrders);
 router.patch(
   "/orders/:orderId",
   updateOrderStatus
+);
+
+router.patch(
+  "/orders/:orderId/return-request",
+  updateReturnRequest
 );
 
 export default router;

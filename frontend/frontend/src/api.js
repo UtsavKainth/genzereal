@@ -103,6 +103,12 @@ export const orderApi = {
       method: "PATCH",
       body: JSON.stringify({ reason }),
     }),
+
+  requestReturnExchange: (orderId, body) =>
+    api(`/orders/${orderId}/return-request`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
 };
 
 export const reviewApi = {
@@ -133,6 +139,12 @@ export const adminApi = {
 
   updateOrder: (orderId, body) =>
     api(`/admin/orders/${orderId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  updateReturnRequest: (orderId, body) =>
+    api(`/admin/orders/${orderId}/return-request`, {
       method: "PATCH",
       body: JSON.stringify(body),
     }),

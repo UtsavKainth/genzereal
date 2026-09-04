@@ -560,3 +560,236 @@ export async function updateOrderStatus(req, res) {
     });
   }
 }
+
+/* ---------------- ADMIN RETURN / EXCHANGE ---------------- */
+
+export async function updateReturnRequest(req, res) {
+  try {
+    const order = await Order.findById(req.params.orderId);
+
+    if (!order) {
+      return res.status(404).json({
+        message: "Order not found",
+      });
+    }
+
+    if (
+      !order.returnRequest ||
+      !order.returnRequest.status ||
+      order.returnRequest.status === "none"
+    ) {
+      return res.status(400).json({
+        message: "This order does not have a return or exchange request",
+      });
+    }
+
+    const requestedStatus = String(
+      req.body?.status || ""
+    ).trim().toLowerCase();
+
+    const allowedStatuses = [
+      "approved",
+      "rejected",
+      "pickup_scheduled",
+      "picked_up",
+      "received",
+      "exchange_dispatched",
+      "refund_processed",
+      "completed",
+    ];
+
+    if (!allowedStatuses.includes(requestedStatus)) {
+      return res.status(400).json({
+        message: "Invalid return/exchange status",
+      });
+    }
+
+    const adminNote = String(
+      req.body?.adminNote || ""
+    ).trim();
+
+    const reverseCourierName = String(
+      req.body?.courierName ||
+      req.body?.reverseCourier?.name ||
+      ""
+    ).trim();
+
+    const reverseAwbNumber = String(
+      req.body?.awbNumber ||
+      req.body?.trackingNumber ||
+      req.body?.reverseCourier?.awbNumber ||
+      ""
+    ).trim();
+
+    const reverseTrackingUrl = String(
+      req.body?.trackingUrl ||
+      req.body?.reverseCourier?.trackingUrl ||
+      ""
+    ).trim();
+
+    const replacementCourierName = String(
+      req.body?.replacementCourierName ||
+      req.body?.replacementCourier?.name ||
+      ""
+    ).trim();
+
+    const replacementAwbNumber = String(
+      req.body?.replacementAwbNumber ||
+      req.body?.replacementTrackingNumber ||
+      req.body?.replacementCourier?.awbNumber ||
+      ""
+    ).trim();
+
+    const replacementTrackingUrl = String(
+      req.body?.replacementTrackingUrl ||
+      req.body?.replacementCourier?.trackingUrl ||
+      ""
+    ).trim();
+
+    if (
+      requestedStatus === "rejected" &&
+      !adminNote
+    ) {
+      return res.status(400).json({
+        message: "Please enter a reason before rejecting the request",
+      });
+    }
+
+    if (
+      requestedStatus === "pickup_scheduled" &&
+      (!reverseCourierName || !reverseAwbNumber)
+    ) {
+      return res.status(400).json({
+        message:
+          "Reverse courier name and AWB/tracking number are required when scheduling pickup",
+      });
+    }
+
+    if (
+      requestedStatus === "exchange_dispatched" &&
+      (!replacementCourierName || !replacementAwbNumber)
+    ) {
+      return res.status(400).json({
+        message:
+          "Replacement courier name and AWB/tracking number are required when dispatching an exchange",
+      });
+    }
+
+    /*
+      Size issue requests are exchange-only.
+    */
+    if (
+      order.returnRequest.reason === "size_issue" &&
+      order.returnRequest.type !== "exchange"
+    ) {
+      return res.status(400).json({
+        message: "Size issues can only be processed as an exchange",
+      });
+    }
+
+    /*
+      Do not allow a refund status for an exchange request.
+    */
+    if (
+      requestedStatus === "refund_processed" &&
+      order.returnRequest.type === "exchange"
+    ) {
+      return res.status(400).json({
+        message: "An exchange request cannot be marked as refunded",
+      });
+    }
+
+    /*
+      Do not allow exchange-dispatched for a refund/return request.
+    */
+    if (
+      requestedStatus === "exchange_dispatched" &&
+      order.returnRequest.type === "return"
+    ) {
+      return res.status(400).json({
+        message:
+          "A return/refund request cannot be marked as exchange dispatched",
+      });
+    }
+
+    order.returnRequest.status = requestedStatus;
+    order.returnRequest.adminNote = adminNote;
+
+    if (
+      ["approved", "rejected"].includes(requestedStatus)
+    ) {
+      order.returnRequest.reviewedAt = new Date();
+    }
+
+    order.returnRequest.reverseCourier = {
+      name:
+        reverseCourierName ||
+        order.returnRequest.reverseCourier?.name ||
+        "",
+
+      awbNumber:
+        reverseAwbNumber ||
+        order.returnRequest.reverseCourier?.awbNumber ||
+        "",
+
+      trackingUrl:
+        reverseTrackingUrl ||
+        order.returnRequest.reverseCourier?.trackingUrl ||
+        "",
+    };
+
+    order.returnRequest.replacementCourier = {
+      name:
+        replacementCourierName ||
+        order.returnRequest.replacementCourier?.name ||
+        "",
+
+      awbNumber:
+        replacementAwbNumber ||
+        order.returnRequest.replacementCourier?.awbNumber ||
+        "",
+
+      trackingUrl:
+        replacementTrackingUrl ||
+        order.returnRequest.replacementCourier?.trackingUrl ||
+        "",
+    };
+
+    /*
+      Mark online payment refunded only after the admin
+      explicitly records that the refund was processed.
+    */
+    if (
+      requestedStatus === "refund_processed" &&
+      order.paymentStatus === "paid"
+    ) {
+      order.paymentStatus = "refunded";
+    }
+
+    await order.save({
+      validateBeforeSave: false,
+    });
+
+    return res.json({
+      message:
+        requestedStatus === "approved"
+          ? "Return/exchange request approved"
+          : requestedStatus === "rejected"
+          ? "Return/exchange request rejected"
+          : "Return/exchange request updated successfully",
+
+      order,
+    });
+  } catch (error) {
+    console.error(
+      "Update return/exchange request failed:",
+      error
+    );
+
+    return res.status(500).json({
+      message:
+        error.message ||
+        "Unable to update return/exchange request",
+    });
+  }
+}

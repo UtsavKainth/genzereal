@@ -39,6 +39,11 @@ import ProductReviews from "./components/ProductReviews";
 import CheckoutModal from "./components/CheckoutModal";
 import MyOrdersModal from "./components/MyOrdersModal";
 import AdminDashboard from "./admin/AdminDashboard";
+import ReturnPolicy from "./components/ReturnPolicy";
+import ShippingPolicy from "./components/ShippingPolicy";
+import PrivacyPolicy from "./components/PrivacyPolicy";
+import TermsConditions from "./components/TermsConditions";
+import ContactUs from "./components/ContactUs";
 /* ---------------------------------- DATA ---------------------------------- */
 
 /* Only this email unlocks the Admin panel (Navbar "Admin" button + image
@@ -2046,7 +2051,7 @@ const Newsletter = () => {
 
 /* --------------------------------- FOOTER --------------------------------- */
 
-const Footer = () => (
+const Footer = ({ onReturnPolicy, onShippingPolicy, onPrivacyPolicy, onTermsConditions, onContactUs }) => (
   <footer id="footer" className="border-t border-line pt-14 pb-8 px-5 md:px-8" style={{ background: "var(--surface)" }}>
     <div className="max-w-7xl mx-auto grid sm:grid-cols-2 md:grid-cols-4 gap-10">
       <div>
@@ -2071,14 +2076,18 @@ const Footer = () => (
       <div>
         <p className="f-mono text-xs text-muted mb-4">SUPPORT</p>
         <ul className="space-y-2.5 text-sm">
-          <li><a href="#top" className="hover:text-pink transition-colors">Shipping & Returns</a></li>
+          <li><button type="button" onClick={onShippingPolicy} className="hover:text-pink transition-colors text-left">Shipping Policy</button></li>
+          <li><button type="button" onClick={onReturnPolicy} className="hover:text-pink transition-colors text-left">Returns & Refunds</button></li>
+          <li><button type="button" onClick={onPrivacyPolicy} className="hover:text-pink transition-colors text-left">Privacy Policy</button></li>
+          <li><button type="button" onClick={onTermsConditions} className="hover:text-pink transition-colors text-left">Terms & Conditions</button></li>
+          <li><button type="button" onClick={onContactUs} className="hover:text-pink transition-colors text-left">Contact Us</button></li>
           <li><a href="#top" className="hover:text-pink transition-colors">Track Order</a></li>
           <li><a href="#top" className="hover:text-pink transition-colors">Size Guide</a></li>
         </ul>
       </div>
       <div>
         <p className="f-mono text-xs text-muted mb-4">CONTACT</p>
-        <p className="flex items-center gap-2 text-sm text-muted"><Mail size={14} /> hello@genzereal.in</p>
+        <p className="flex items-center gap-2 text-sm text-muted"><Mail size={14} /> hello@genzereal.com</p>
       </div>
     </div>
     <div className="max-w-7xl mx-auto border-t border-line mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -2865,6 +2874,11 @@ export default function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showReturnPolicy, setShowReturnPolicy] = useState(false);
+  const [showShippingPolicy, setShowShippingPolicy] = useState(false);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+  const [showTermsConditions, setShowTermsConditions] = useState(false);
+  const [showContactUs, setShowContactUs] = useState(false);
   const [showOrders, setShowOrders] = useState(false);
   const [adminCategoryFilter, setAdminCategoryFilter] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -3138,7 +3152,13 @@ export default function App() {
 
       <Newsletter />
 
-      <Footer />
+      <Footer
+        onReturnPolicy={() => setShowReturnPolicy(true)}
+        onShippingPolicy={() => setShowShippingPolicy(true)}
+        onPrivacyPolicy={() => setShowPrivacyPolicy(true)}
+        onTermsConditions={() => setShowTermsConditions(true)}
+        onContactUs={() => setShowContactUs(true)}
+      />
 
       <CartDrawer
   open={showCart}
@@ -3266,6 +3286,34 @@ export default function App() {
         wishlist={wishlist}
         onToggleWishlist={toggleWishlist}
         user={user}
+      />
+
+      <ShippingPolicy
+        open={showShippingPolicy}
+        onClose={() => setShowShippingPolicy(false)}
+      />
+
+      {showPrivacyPolicy && (
+        <PrivacyPolicy
+          onClose={() => setShowPrivacyPolicy(false)}
+        />
+      )}
+
+      {showTermsConditions && (
+        <TermsConditions
+          onClose={() => setShowTermsConditions(false)}
+        />
+      )}
+
+      {showContactUs && (
+        <ContactUs
+          onClose={() => setShowContactUs(false)}
+        />
+      )}
+
+      <ReturnPolicy
+        open={showReturnPolicy}
+        onClose={() => setShowReturnPolicy(false)}
       />
 
       <AdminDashboard
