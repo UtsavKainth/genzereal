@@ -8,6 +8,7 @@ import {
   getAllOrders,
   updateOrderStatus,
   updateReturnRequest,
+  generateAdminShippingLabel,
 } from "../controllers/adminController.js";
 
 const router = Router();
@@ -24,6 +25,11 @@ router.patch(
 router.patch(
   "/orders/:orderId/return-request",
   updateReturnRequest
+);
+
+router.post(
+  "/orders/:orderId/shipping-label",
+  generateAdminShippingLabel
 );
 
 export default router;

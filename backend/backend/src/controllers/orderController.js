@@ -5,6 +5,14 @@ import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import razorpay from "../config/razorpay.js";
 import { sendOrderConfirmation } from "../utils/mailer.js";
+import {
+  createShiprocketOrder,
+  getAvailableCouriers,
+  chooseShiprocketCourier,
+  assignShiprocketAwb,
+  scheduleShiprocketPickup,
+  trackShiprocketAwb,
+} from "../services/shiprocketService.js";
 
 /* -------------------------- ORDER NUMBER -------------------------- */
 
@@ -382,6 +390,257 @@ async function sendConfirmationSafely(order) {
     });
   }
 }
+
+/* ------------------------ SHIPROCKET HANDLER ---------------------- */
+
+async function createShiprocketOrderSafely(order) {
+  try {
+    if (
+      order.shiprocket?.orderId ||
+      order.shiprocket?.shipmentId
+    ) {
+      console.log(
+        `Shiprocket order already exists for ${order.orderNumber}`
+      );
+
+      return;
+    }
+
+    const result =
+      await createShiprocketOrder(order);
+
+    const shiprocketOrderId =
+      result?.order_id ||
+      result?.data?.order_id ||
+      null;
+
+    const shipmentId =
+      result?.shipment_id ||
+      result?.data?.shipment_id ||
+      null;
+
+    if (!shiprocketOrderId || !shipmentId) {
+      throw new Error(
+        result?.message ||
+        "Shiprocket did not create the shipment"
+      );
+    }
+
+    await Order.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          "shiprocket.orderId":
+            shiprocketOrderId,
+
+          "shiprocket.shipmentId":
+            shipmentId,
+
+          "shiprocket.status":
+            result?.status || "NEW",
+
+          "shiprocket.createdAt":
+            new Date(),
+
+          "shiprocket.error": "",
+        },
+      }
+    );
+
+    console.log(
+      `Shiprocket order created for ${order.orderNumber}: shipment ${shipmentId}`
+    );
+
+    const deliveryPostcode =
+      String(
+        order.shippingAddress?.postalCode || ""
+      ).trim();
+
+    if (!deliveryPostcode) {
+      throw new Error(
+        "Delivery PIN code is missing for courier selection"
+      );
+    }
+
+    const totalQty =
+      order.items.reduce(
+        (sum, item) =>
+          sum + Number(item.qty || 0),
+        0
+      );
+
+    const weight = Math.max(
+      0.5,
+      Number(
+        (totalQty * 0.5).toFixed(2)
+      )
+    );
+
+    const serviceability =
+      await getAvailableCouriers({
+        pickupPostcode:
+          process.env.SHIPROCKET_PICKUP_POSTCODE ||
+          "110051",
+
+        deliveryPostcode,
+
+        weight,
+
+        cod:
+          String(order.paymentMethod)
+            .toUpperCase() === "COD",
+      });
+
+    const selectedCourier =
+      chooseShiprocketCourier(
+        serviceability.couriers,
+        serviceability.recommendedCourierId
+      );
+
+    await Order.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          "shiprocket.courierId":
+            Number(
+              selectedCourier.courier_company_id
+            ),
+
+          "shiprocket.courierName":
+            selectedCourier.courier_name || "",
+
+          "shiprocket.error": "",
+        },
+      }
+    );
+
+    console.log(
+      `Shiprocket courier selected for ${order.orderNumber}: ${selectedCourier.courier_name} (ID ${selectedCourier.courier_company_id})`
+    );
+
+    if (
+      String(process.env.SHIPROCKET_AUTO_AWB)
+        .toLowerCase() !== "true"
+    ) {
+      console.log(
+        `Shiprocket AWB assignment disabled for ${order.orderNumber}`
+      );
+      return;
+    }
+
+    const awbResult =
+      await assignShiprocketAwb({
+        shipmentId,
+        courierId:
+          selectedCourier.courier_company_id,
+      });
+
+    await Order.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          "shiprocket.awbCode":
+            awbResult.awbCode,
+
+          "shiprocket.courierName":
+            awbResult.courierName ||
+            selectedCourier.courier_name ||
+            "",
+
+          "courier.name":
+            awbResult.courierName ||
+            selectedCourier.courier_name ||
+            "",
+
+          "courier.awbNumber":
+            awbResult.awbCode,
+
+          "shiprocket.error": "",
+        },
+      }
+    );
+
+    console.log(
+      `Shiprocket AWB assigned for ${order.orderNumber}: ${awbResult.awbCode}`
+    );
+
+    if (
+      String(process.env.SHIPROCKET_AUTO_PICKUP)
+        .toLowerCase() !== "true"
+    ) {
+      console.log(
+        `Shiprocket pickup scheduling disabled for ${order.orderNumber}`
+      );
+      return;
+    }
+
+    const pickupResult =
+      await scheduleShiprocketPickup({
+        shipmentId,
+      });
+
+    const pickupResponse =
+      pickupResult?.response || {};
+
+    const pickupScheduledDate =
+      pickupResponse?.pickup_scheduled_date
+        ? new Date(
+            pickupResponse.pickup_scheduled_date
+              .replace(" ", "T") + "+05:30"
+          )
+        : null;
+
+    await Order.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          "shiprocket.pickupStatus":
+            Number(pickupResult?.pickup_status) === 1
+              ? "CONFIRMED"
+              : "REQUESTED",
+
+          "shiprocket.pickupToken":
+            pickupResponse?.pickup_token_number ||
+            "",
+
+          "shiprocket.pickupScheduledDate":
+            pickupScheduledDate,
+
+          "shiprocket.pickupMessage":
+            pickupResponse?.data ||
+            "",
+
+          "shiprocket.error": "",
+        },
+      }
+    );
+
+    console.log(
+      `Shiprocket pickup confirmed for ${order.orderNumber}: ${pickupResponse?.pickup_scheduled_date || "date pending"}`
+    );
+  } catch (shiprocketError) {
+    console.error(
+      `Shiprocket processing failed for ${order.orderNumber}:`,
+      shiprocketError.message
+    );
+
+    await Order.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          "shiprocket.error":
+            shiprocketError.message,
+        },
+      }
+    ).catch((databaseError) => {
+      console.error(
+        "Unable to save Shiprocket error:",
+        databaseError.message
+      );
+    });
+  }
+}
+
 /* ---------------------- CREATE RAZORPAY ORDER --------------------- */
 
 export async function createPaymentOrder(
@@ -657,6 +916,10 @@ export async function verifyPayment(
       createdOrder
     );
 
+    void createShiprocketOrderSafely(
+      createdOrder
+    );
+
    return res.status(201).json({
   message: `Order placed successfully. Confirmation email is being sent to ${createdOrder.customerEmail}`,
 
@@ -797,6 +1060,10 @@ export async function createOrder(
     );
 
     void sendConfirmationSafely(
+      createdOrder
+    );
+
+    void createShiprocketOrderSafely(
       createdOrder
     );
 
@@ -1144,6 +1411,60 @@ export async function requestReturnExchange(req, res) {
 
     return res.status(500).json({
       message: error.message || "Unable to submit return or exchange request",
+    });
+  }
+}
+
+/* ---------------------- SHIPROCKET TRACKING ---------------------- */
+
+export async function trackMyOrder(req, res) {
+  try {
+    const order = await Order.findOne({
+      _id: req.params.orderId,
+      user: req.user._id,
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        message: "Order not found",
+      });
+    }
+
+    const awbCode = String(
+      order.shiprocket?.awbCode ||
+      order.courier?.awbNumber ||
+      ""
+    ).trim();
+
+    if (!awbCode) {
+      return res.status(400).json({
+        message:
+          "Tracking is not available yet. AWB has not been assigned.",
+      });
+    }
+
+    const tracking =
+      await trackShiprocketAwb(awbCode);
+
+    return res.json({
+      orderNumber: order.orderNumber,
+      awbCode,
+      courier:
+        order.shiprocket?.courierName ||
+        order.courier?.name ||
+        "",
+      tracking,
+    });
+  } catch (error) {
+    console.error(
+      "Shiprocket tracking failed:",
+      error
+    );
+
+    return res.status(500).json({
+      message:
+        error?.message ||
+        "Unable to track shipment",
     });
   }
 }

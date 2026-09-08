@@ -98,6 +98,9 @@ export const orderApi = {
 
   mine: () => api("/orders/mine"),
 
+  track: (orderId) =>
+    api(`/orders/${orderId}/tracking`),
+
   cancel: (orderId, reason) =>
     api(`/orders/${orderId}/cancel`, {
       method: "PATCH",
@@ -147,6 +150,11 @@ export const adminApi = {
     api(`/admin/orders/${orderId}/return-request`, {
       method: "PATCH",
       body: JSON.stringify(body),
+    }),
+
+  shippingLabel: (orderId) =>
+    api(`/admin/orders/${orderId}/shipping-label`, {
+      method: "POST",
     }),
 };
 export const productApi = {

@@ -18,6 +18,7 @@ import reviewRoutes from "./routes/reviewRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
+import logisticsRoutes from "./routes/logisticsRoutes.js";
 
 import { errorHandler, notFound } from "./middleware/error.js";
 
@@ -54,6 +55,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.use("/api/logistics", logisticsRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/reviews", reviewRoutes);

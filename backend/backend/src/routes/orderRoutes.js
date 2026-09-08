@@ -7,6 +7,7 @@ import {
   myOrders,
   cancelMyOrder,
   requestReturnExchange,
+  trackMyOrder,
 } from "../controllers/orderController.js";
 
 const router = Router();
@@ -15,6 +16,7 @@ router.post("/payment/create", createPaymentOrder);
 router.post("/payment/verify", verifyPayment);
 router.post("/", createOrder);
 router.get("/mine", myOrders);
+router.get("/:orderId/tracking", trackMyOrder);
 router.patch("/:orderId/cancel", cancelMyOrder);
 router.patch("/:orderId/return-request", requestReturnExchange);
 export default router;

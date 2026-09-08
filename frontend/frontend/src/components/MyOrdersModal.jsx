@@ -121,6 +121,9 @@ export default function MyOrdersModal({ open, onClose, notify }) {
   const [error, setError] = useState("");
   const [cancellingId, setCancellingId] = useState("");
 
+  const [trackingId, setTrackingId] = useState("");
+  const [trackingData, setTrackingData] = useState({});
+
   const [returnOrderId, setReturnOrderId] = useState("");
   const [returnSubmitting, setReturnSubmitting] = useState(false);
 
@@ -151,6 +154,34 @@ export default function MyOrdersModal({ open, onClose, notify }) {
   }, [open]);
 
   if (!open) return null;
+
+  const trackOrder = async (orderId) => {
+    setTrackingId(orderId);
+
+    try {
+      const data = await orderApi.track(orderId);
+
+      setTrackingData((current) => ({
+        ...current,
+        [orderId]: data,
+      }));
+    } catch (err) {
+      const message =
+        err.message ||
+        "Tracking is not available yet.";
+
+      setTrackingData((current) => ({
+        ...current,
+        [orderId]: {
+          error: message,
+        },
+      }));
+
+      notify?.(message);
+    } finally {
+      setTrackingId("");
+    }
+  };
 
   const cancelOrder = async (orderId) => {
     const reason = window.prompt(
@@ -829,6 +860,17 @@ export default function MyOrdersModal({ open, onClose, notify }) {
                 )}
 
                 <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => trackOrder(order._id)}
+                    disabled={trackingId === order._id}
+                    className="btn-primary rounded-full px-5 py-2 text-sm disabled:opacity-50"
+                  >
+                    {trackingId === order._id
+                      ? "Checking..."
+                      : "Track Order"}
+                  </button>
+
                   {order.courier?.trackingUrl && (
                     <a
                       href={
@@ -874,6 +916,124 @@ export default function MyOrdersModal({ open, onClose, notify }) {
                       </button>
                     )}
                 </div>
+
+                {trackingData[order._id] &&
+                  (() => {
+                    const result =
+                      trackingData[order._id];
+
+                    if (result?.error) {
+                      return (
+                        <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
+                          <p className="text-xs uppercase tracking-wider text-red-300">
+                            Tracking information
+                          </p>
+
+                          <p className="mt-2 text-sm text-white/70">
+                            {result.error}
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    const tracking =
+                      result?.tracking?.tracking_data;
+
+                    const shipment =
+                      tracking?.shipment_track?.[0];
+
+                    const activities =
+                      tracking?.shipment_track_activities || [];
+
+                    return (
+                      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs uppercase tracking-wider text-violet-300">
+                          Live Shipment Tracking
+                        </p>
+
+                        <div className="mt-3 space-y-1 text-sm text-white/80">
+                          <p>
+                            Courier:{" "}
+                            {shipment?.courier_name ||
+                              result?.courier ||
+                              "Updating"}
+                          </p>
+
+                          <p>
+                            AWB:{" "}
+                            {shipment?.awb_code ||
+                              result?.awbCode ||
+                              "Updating"}
+                          </p>
+
+                          <p>
+                            Current Status:{" "}
+                            <span className="font-semibold text-emerald-300">
+                              {shipment?.current_status ||
+                                "Updating"}
+                            </span>
+                          </p>
+
+                          {shipment?.edd && (
+                            <p>
+                              Estimated Delivery:{" "}
+                              {shipment.edd}
+                            </p>
+                          )}
+
+                          {tracking?.track_url && (
+                            <p className="pt-2">
+                              <a
+                                href={tracking.track_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-violet-300 underline underline-offset-4"
+                              >
+                                Open Shiprocket Tracking
+                              </a>
+                            </p>
+                          )}
+                        </div>
+
+                        {activities.length > 0 && (
+                          <div className="mt-5 border-t border-white/10 pt-4">
+                            <p className="mb-3 text-xs uppercase tracking-wider text-white/50">
+                              Tracking History
+                            </p>
+
+                            <div className="space-y-4">
+                              {activities.map(
+                                (activity, index) => (
+                                  <div
+                                    key={`${activity.date}-${index}`}
+                                    className="border-l-2 border-violet-400/40 pl-4"
+                                  >
+                                    <p className="text-sm font-medium text-white">
+                                      {activity["sr-status-label"] &&
+                                      activity["sr-status-label"] !== "NA"
+                                        ? activity["sr-status-label"]
+                                        : activity.activity}
+                                    </p>
+
+                                    <p className="mt-1 text-xs text-white/60">
+                                      {activity.activity}
+                                    </p>
+
+                                    <p className="mt-1 text-xs text-white/40">
+                                      {activity.location || "Location updating"}
+                                      {activity.date
+                                        ? ` · ${activity.date}`
+                                        : ""}
+                                    </p>
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                 {order.status === "delivered" &&
                   !eligibleForReturn &&

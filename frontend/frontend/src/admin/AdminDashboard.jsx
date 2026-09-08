@@ -504,6 +504,31 @@ function OrderDetails({
   onReturnUpdate,
   onClose,
 }) {
+  const [labelLoading, setLabelLoading] = useState(false);
+
+  const printShippingLabel = async () => {
+    if (!order?.shiprocket?.shipmentId) {
+      alert("Shiprocket shipment has not been created yet.");
+      return;
+    }
+
+    setLabelLoading(true);
+
+    try {
+      const data = await adminApi.shippingLabel(order._id);
+
+      if (!data?.labelUrl) {
+        throw new Error("Label URL not received from Shiprocket.");
+      }
+
+      window.open(data.labelUrl, "_blank");
+    } catch (err) {
+      alert(err.message || "Unable to generate shipping label.");
+    } finally {
+      setLabelLoading(false);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-[120] flex justify-end bg-black/70"
@@ -973,6 +998,17 @@ function OrderDetails({
             >
               {saving ? "Saving..." : "Save Order Update"}
             </button>
+
+            {order.shiprocket?.shipmentId && (
+              <button
+                type="button"
+                onClick={printShippingLabel}
+                disabled={labelLoading}
+                className="w-full rounded-full border border-violet-400/40 bg-violet-500/10 py-3 mt-3 text-sm font-medium text-violet-200 hover:bg-violet-500/20 disabled:opacity-50"
+              >
+                {labelLoading ? "Generating Label..." : "Print Shipping Label"}
+              </button>
+            )}
           </InfoSection>
         </div>
       </aside>

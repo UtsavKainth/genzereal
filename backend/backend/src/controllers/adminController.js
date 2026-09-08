@@ -2,6 +2,7 @@ import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
 import { sendOrderStatusUpdate } from "../utils/mailer.js";
+import { generateShiprocketLabel } from "../services/shiprocketService.js";
 
 const ALLOWED_STATUSES = [
   "placed",
@@ -790,6 +791,51 @@ export async function updateReturnRequest(req, res) {
       message:
         error.message ||
         "Unable to update return/exchange request",
+    });
+  }
+}
+
+
+export async function generateAdminShippingLabel(req, res) {
+  try {
+    const order = await Order.findById(req.params.orderId);
+
+    if (!order) {
+      return res.status(404).json({
+        message: "Order not found",
+      });
+    }
+
+    const shipmentId =
+      order.shiprocket?.shipmentId;
+
+    if (!shipmentId) {
+      return res.status(400).json({
+        message:
+          "Shiprocket shipment has not been created for this order yet",
+      });
+    }
+
+    const result =
+      await generateShiprocketLabel({
+        shipmentId,
+      });
+
+    return res.json({
+      orderNumber: order.orderNumber,
+      shipmentId,
+      labelUrl: result.labelUrl,
+    });
+  } catch (error) {
+    console.error(
+      "Shipping label generation failed:",
+      error
+    );
+
+    return res.status(500).json({
+      message:
+        error?.message ||
+        "Unable to generate shipping label",
     });
   }
 }
