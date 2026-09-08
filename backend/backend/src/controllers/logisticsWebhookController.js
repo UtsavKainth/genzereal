@@ -23,7 +23,8 @@ function mapShippingStatus(value) {
     status.includes("in transit") ||
     status.includes("in_transit") ||
     status.includes("picked up") ||
-    status.includes("picked_up")
+    status.includes("picked_up") ||
+    status.includes("shipped")
   ) {
     return "dispatched";
   }
@@ -44,6 +45,42 @@ function mapShippingStatus(value) {
   }
 
   return null;
+}
+
+const STATUS_RANK = {
+  placed: 0,
+  confirmed: 1,
+  packed: 2,
+  dispatched: 3,
+  out_for_delivery: 4,
+  delivered: 5,
+};
+
+function shouldApplyStatus(currentStatus, nextStatus) {
+  if (!nextStatus || currentStatus === nextStatus) {
+    return false;
+  }
+
+  // Final states must never move backwards.
+  if (
+    currentStatus === "delivered" ||
+    currentStatus === "cancelled"
+  ) {
+    return false;
+  }
+
+  // Cancellation is allowed until delivery.
+  if (nextStatus === "cancelled") {
+    return currentStatus !== "delivered";
+  }
+
+  const currentRank =
+    STATUS_RANK[currentStatus] ?? -1;
+
+  const nextRank =
+    STATUS_RANK[nextStatus] ?? -1;
+
+  return nextRank > currentRank;
 }
 
 export async function logisticsStatusWebhook(req, res) {
@@ -111,8 +148,10 @@ export async function logisticsStatusWebhook(req, res) {
     }
 
     if (
-      nextStatus &&
-      order.status !== nextStatus
+      shouldApplyStatus(
+        order.status,
+        nextStatus
+      )
     ) {
       order.status = nextStatus;
 
