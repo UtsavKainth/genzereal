@@ -19,6 +19,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import logisticsRoutes from "./routes/logisticsRoutes.js";
+import razorpayWebhookRoutes from "./routes/razorpayWebhookRoutes.js";
 
 import { errorHandler, notFound } from "./middleware/error.js";
 
@@ -37,7 +38,7 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: "5mb" }));
+app.use(express.json({ limit: "5mb", verify: (req, res, buf) => { req.rawBody = buf; } }));
 app.use(morgan("dev"));
 
 app.use(
@@ -56,6 +57,7 @@ app.get("/api/health", (req, res) => {
 });
 
 app.use("/api/logistics", logisticsRoutes);
+app.use("/api/razorpay", razorpayWebhookRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/reviews", reviewRoutes);
