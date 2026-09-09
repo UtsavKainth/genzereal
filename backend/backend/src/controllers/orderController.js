@@ -922,9 +922,19 @@ export async function verifyPayment(
       createdOrder
     );
 
-    void createShiprocketOrderSafely(
-      createdOrder
-    );
+    const isRazorpayLive = String(
+      process.env.RAZORPAY_KEY_ID || ""
+    ).startsWith("rzp_live_");
+
+    if (isRazorpayLive) {
+      void createShiprocketOrderSafely(
+        createdOrder
+      );
+    } else {
+      console.log(
+        `Shiprocket skipped for ${createdOrder.orderNumber}: Razorpay is in TEST mode`
+      );
+    }
 
    return res.status(201).json({
   message: `Order placed successfully. Confirmation email is being sent to ${createdOrder.customerEmail}`,
