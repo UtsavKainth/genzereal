@@ -804,6 +804,77 @@ export async function verifyPayment(
       });
     }
 
+    /*
+      Production payment verification:
+      Never trust only the browser callback.
+      Fetch the payment directly from Razorpay before fulfilling the order.
+    */
+    const razorpayPayment =
+      await razorpay.payments.fetch(
+        razorpay_payment_id
+      );
+
+    if (
+      String(razorpayPayment.order_id) !==
+      String(razorpay_order_id)
+    ) {
+      return res.status(400).json({
+        message: "Razorpay order mismatch",
+      });
+    }
+
+    if (
+      String(razorpayPayment.currency).toUpperCase() !==
+      "INR"
+    ) {
+      return res.status(400).json({
+        message: "Invalid payment currency",
+      });
+    }
+
+    if (razorpayPayment.status !== "captured") {
+      return res.status(400).json({
+        message:
+          "Payment has not been captured",
+      });
+    }
+
+    const verifiedItems =
+      cleanOrderItems(items);
+
+    if (
+      hasInvalidOrderItem(verifiedItems)
+    ) {
+      return res.status(400).json({
+        message:
+          "One or more order items are invalid",
+      });
+    }
+
+    const verifiedPreparedItems =
+      await prepareInventoryItems(
+        verifiedItems
+      );
+
+    const verifiedAmounts =
+      calculateAmounts(
+        verifiedPreparedItems
+      );
+
+    const expectedAmountInPaise =
+      Math.round(
+        verifiedAmounts.total * 100
+      );
+
+    if (
+      Number(razorpayPayment.amount) !==
+      expectedAmountInPaise
+    ) {
+      return res.status(400).json({
+        message: "Payment amount mismatch",
+      });
+    }
+
     const existingOrder =
       await Order.findOne({
         razorpayPaymentId:
