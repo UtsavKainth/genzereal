@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { protect } from "../middleware/auth.js";
 import {
-  createOrder,
   createPaymentOrder,
   verifyPayment,
   myOrders,
@@ -14,7 +13,6 @@ const router = Router();
 router.use(protect);
 router.post("/payment/create", createPaymentOrder);
 router.post("/payment/verify", verifyPayment);
-router.post("/", createOrder);
 router.get("/mine", myOrders);
 router.get("/:orderId/tracking", trackMyOrder);
 router.patch("/:orderId/cancel", cancelMyOrder);

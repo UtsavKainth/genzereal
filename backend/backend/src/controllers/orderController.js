@@ -741,6 +741,12 @@ export async function verifyPayment(
       phone = "",
     } = req.body;
 
+    const customerPhone = String(
+      phone ||
+      shippingAddress?.phone ||
+      ""
+    ).trim();
+
     if (
       !razorpay_order_id ||
       !razorpay_payment_id ||
@@ -865,7 +871,7 @@ export async function verifyPayment(
                   req.user.email,
 
                 customerPhone:
-                  phone,
+                  customerPhone,
 
                 items:
                   preparedItems,

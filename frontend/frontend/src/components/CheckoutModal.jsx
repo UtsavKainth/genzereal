@@ -75,7 +75,7 @@ export default function CheckoutModal({
     postalCode: "",
     landmark: "",
     deliveryInstructions: "",
-    paymentMethod: "COD",
+    paymentMethod: "RAZORPAY",
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -167,16 +167,6 @@ export default function CheckoutModal({
     deliveryInstructions: form.deliveryInstructions.trim(),
     phone: form.phone.trim(),
   });
-
-  const placeCodOrder = async () => {
-    await onPlaceOrder({
-      ...form,
-      paymentMethod: "COD",
-      subtotal,
-      shipping,
-      total,
-    });
-  };
 
   const startRazorpayPayment = async () => {
     const scriptLoaded = await loadRazorpayScript();
@@ -284,11 +274,7 @@ export default function CheckoutModal({
       validateForm();
       setSubmitting(true);
 
-      if (form.paymentMethod === "RAZORPAY") {
-        await startRazorpayPayment();
-      } else {
-        await placeCodOrder();
-      }
+      await startRazorpayPayment();
     } catch (orderError) {
       setError(orderError.message || "Unable to place order.");
     } finally {
@@ -442,31 +428,6 @@ export default function CheckoutModal({
 
               <label
                 className={`flex items-start gap-3 border rounded-xl p-4 cursor-pointer ${
-                  form.paymentMethod === "COD"
-                    ? "border-violet-500"
-                    : "border-line"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="COD"
-                  checked={form.paymentMethod === "COD"}
-                  onChange={updateField}
-                  className="mt-1"
-                />
-
-                <div>
-                  <p className="font-semibold">Cash on Delivery</p>
-
-                  <p className="text-sm text-muted mt-1">
-                    Pay when your order reaches you.
-                  </p>
-                </div>
-              </label>
-
-              <label
-                className={`flex items-start gap-3 border rounded-xl p-4 mt-3 cursor-pointer ${
                   form.paymentMethod === "RAZORPAY"
                     ? "border-violet-500"
                     : "border-line"
@@ -580,12 +541,8 @@ export default function CheckoutModal({
               className="btn-primary w-full py-3 rounded-full mt-5 disabled:opacity-60"
             >
               {submitting
-                ? form.paymentMethod === "RAZORPAY"
-                  ? "Opening Payment..."
-                  : "Placing Order..."
-                : form.paymentMethod === "RAZORPAY"
-                  ? `Pay ₹${total.toLocaleString("en-IN")}`
-                  : "Place COD Order"}
+                ? "Opening Payment..."
+                : `Pay ₹${total.toLocaleString("en-IN")}`}
             </button>
 
             <p className="text-xs text-muted text-center mt-3">

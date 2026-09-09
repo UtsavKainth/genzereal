@@ -878,7 +878,7 @@ const MobileMenu = ({
 
 /* --------------------------------- MARQUEE --------------------------------- */
 
-const TICKER_ITEMS = ["NEW DROP EVERY FRIDAY", "AUTHENTIC GEN-Z STREETWEAR", "COD AVAILABLE PAN INDIA"];
+const TICKER_ITEMS = ["NEW DROP EVERY FRIDAY", "AUTHENTIC GEN-Z STREETWEAR", "SECURE ONLINE PAYMENTS"];
 
 const Marquee = () => (
   <div className="relative border-y border-line overflow-hidden" style={{ background: "var(--surface)" }}>
