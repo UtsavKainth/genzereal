@@ -3187,6 +3187,10 @@ export default function App() {
         cart={cart}
         user={user}
         onPlaceOrder={placeOrder}
+        onPaymentSuccess={() => {
+          setCart([]);
+          setShowCheckout(false);
+        }}
       />
 
       <MyOrdersModal
